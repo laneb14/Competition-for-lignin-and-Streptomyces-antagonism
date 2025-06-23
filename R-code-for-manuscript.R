@@ -19,8 +19,9 @@ setwd(dirname(rstudioapi::getSourceEditorContext()$path));getwd()
 ##### Input Data #####
 InputOverlayMeasures <- read.table(file = 'Data/Final.Overlays.tsv', sep = '\t', header = TRUE) # use a quote character that I know isn't used to avoid some problems
 InputAntibioticMeasures <- read.table(file = 'Data/Final.Antibiotics.tsv', sep = '\t', header = TRUE) # use a quote character that I know isn't used to avoid some problems
-InputAlignment <- read.FASTA("Final.Seqs.fasta")
 LigninUseInput <- read.table(file = 'Data/IsolatesTestedForLigninGrowth.tsv', sep = '\t', header = TRUE,quote = '$')
+InputBiolog <- read.table(file = 'Data/Final.Biolog.tsv', sep = '\t', header = TRUE)
+InputAlignment <- read.FASTA("Final.Seqs.fasta")
 
 ##### Universal Variables #####
 FunctionMeanSE <- function(measurements){ m <- mean(measurements) ; se <- sd(measurements)/sqrt(length(measurements)) ; return(paste(m,"±",se))  }
@@ -66,24 +67,24 @@ Inhibitors.MeanByComboDF$InvSqrt.Inhib <- 1/sqrt(Inhibitors.MeanByComboDF$Inhib)
 lmer(InvSqrt.Inhib~UsesLignin*fertilizer*residue+(1|block),Inhibitors.MeanByComboDF) %>% anova
 
 # Table S3
+lmer(InvSqrt.Inhib~UsesLignin+(1|block),Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$residue=='res+',]) %>% anova
 lmer(InvSqrt.Inhib~UsesLignin+(1|block),Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$fertilizer=='NPK+'& Inhibitors.MeanByComboDF$residue=='res+',]) %>% anova
 lmer(InvSqrt.Inhib~UsesLignin+(1|block),Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$fertilizer=='NPK-'& Inhibitors.MeanByComboDF$residue=='res+',]) %>% anova
+
+lmer(InvSqrt.Inhib~UsesLignin+(1|block),Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$residue=='res-',]) %>% anova
 lmer(InvSqrt.Inhib~UsesLignin+(1|block),Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$fertilizer=='NPK+'& Inhibitors.MeanByComboDF$residue=='res-',]) %>% anova
 lmer(InvSqrt.Inhib~UsesLignin+(1|block),Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$fertilizer=='NPK-'& Inhibitors.MeanByComboDF$residue=='res-',]) %>% anova
-
-lmer(InvSqrt.Inhib~UsesLignin+(1|block),Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$residue=='res+',]) %>% anova
-lmer(InvSqrt.Inhib~UsesLignin+(1|block),Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$residue=='res-',]) %>% anova
 
 
 
 # mean and se for Table S3
+FunctionMeanSE(Inhibitors.MeanByComboDF$Inhib[Inhibitors.MeanByComboDF$residue=='res+'])
 FunctionMeanSE(Inhibitors.MeanByComboDF$Inhib[Inhibitors.MeanByComboDF$fertilizer=='NPK+'& Inhibitors.MeanByComboDF$residue=='res+'])
 FunctionMeanSE(Inhibitors.MeanByComboDF$Inhib[Inhibitors.MeanByComboDF$fertilizer=='NPK-'& Inhibitors.MeanByComboDF$residue=='res+'])
+
+FunctionMeanSE(Inhibitors.MeanByComboDF$Inhib[Inhibitors.MeanByComboDF$residue=='res-'])
 FunctionMeanSE(Inhibitors.MeanByComboDF$Inhib[Inhibitors.MeanByComboDF$fertilizer=='NPK+'& Inhibitors.MeanByComboDF$residue=='res-'])
 FunctionMeanSE(Inhibitors.MeanByComboDF$Inhib[Inhibitors.MeanByComboDF$fertilizer=='NPK-'& Inhibitors.MeanByComboDF$residue=='res-'])
-
-FunctionMeanSE(Inhibitors.MeanByComboDF$Inhib[Inhibitors.MeanByComboDF$residue=='res+'])
-FunctionMeanSE(Inhibitors.MeanByComboDF$Inhib[Inhibitors.MeanByComboDF$residue=='res-'])
 
 
 # Calculate Cohen's D for the impact of lignin use on inhibition strength for res+/fert+ and res+/fert-
@@ -165,6 +166,7 @@ PropInhibitedDF$NumberInhibited %>% min
 PropInhibitedDF$NumberInhibited %>% max
 sum(PropInhibitedDF$NumberInhibited>=7)
 sum(PropInhibitedDF$NumberInhibited<=3)
+sum(PropInhibitedDF$NumberInhibited==0)
 
 # Table 2, part 1
 glmer(Binary.DoesInhibit~UsesLignin*fertilizer*residue+(1|block),data=MeanByComboDF,family=binomial) %>% summary
@@ -219,8 +221,8 @@ for (x in unique(SimplifiedAntibioticsDF.SensetiveInteractions$Antibiotics)){
 }
 
 # Figure S1
-AntiSigDF <- data.frame(FullName=c('Chloramphenicol','Novobiocin','Rifampin','Tetracycline') ,
-                        vert=c(15.5,15.5,11,11),vert2=c(15.5,15.5,11,11))
+AntiSigDF <- data.frame(FullName=c('Chloramphenicol','Rifampin') ,
+                        vert=c(15.5,11),vert2=c(15.5,11))
 
 # 725 x 400 when copied
 FigureS1.Anti <-
@@ -240,9 +242,7 @@ ggplot(SimplifiedAntibioticsDF.SensetiveInteractions,aes(y=rmean,x=as.factor(Use
 FigureS1.Anti
 # ggsave(filename='figS1.jpeg',plot=FigureS1.Anti,dpi=1000,width=7.3,height=4,units='in') # commented to keep from accidently overwriting
 
-
 ##### Biolog data #####
-InputBiolog <- read.table(file = 'Data/Final.Biolog.tsv', sep = '\t', header = TRUE)
 WideBiolog <- InputBiolog %>% dplyr::select(Isolate,Well,FinalOD) %>% pivot_wider(names_from=Well,values_from=FinalOD) %>% as.data.frame ; rownames(WideBiolog) <- WideBiolog$Isolate ; WideBiolog$Isolate <- NULL
 BiologEucDist <- vegdist(WideBiolog,method='euclidean') %>% as.matrix()
 BiologMeta <- InputBiolog %>% dplyr::select(Isolate,plot,block,residue,fertilizer,UsesLignin) %>% unique
@@ -336,7 +336,7 @@ ggplot(InputBiolog[InputBiolog$Well=='B10',],aes(y=FinalOD,x=as.factor(UsesLigni
   theme(panel.grid = element_blank())
 
 FigureS2.Carbon
-ggsave(filename='figS2.jpeg',plot=FigureS2.Carbon,dpi=1000,width=2.5,height=4,units='in') # commented to keep from accidently overwriting
+# ggsave(filename='figS2.jpeg',plot=FigureS2.Carbon,dpi=1000,width=2.5,height=4,units='in') # commented to keep from accidently overwriting
 
 ##### MUSCLE Alignment #####
 
