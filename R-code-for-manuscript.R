@@ -38,6 +38,7 @@ paste(sum(LigninUseInput$Lignin[LigninUseInput$NPK=='fert-']),' of ',nrow(Lignin
 
 # Table 1
 glmer(Lignin~NPK*Res+(1|Block),data=LigninUseInput,family=binomial) %>% summary
+glmer(Lignin~NPK+(1|Block),data=LigninUseInput[LigninUseInput$Res=='res-',],family=binomial) %>% summary
 
 ##### Calculate means of all dot and overlay combinations ##### 
 MeanByComboDF <- 
@@ -106,6 +107,18 @@ TempDF <- Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$residue=='res+',];co
 # res-
 TempDF <- Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$residue=='res-',];cohensD(x=TempDF$Log.Inhib[TempDF$UsesLignin==1],y=TempDF$Log.Inhib[TempDF$UsesLignin==0]);rm(TempDF)
 
+# Are the CohensD of res+/fert+ and res+/fert- statistically different
+ResAndFert <- Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$residue=='res+'&Inhibitors.MeanByComboDF$fertilizer=='NPK+',]
+ResAndFert.Uses <- ResAndFert[ResAndFert$UsesLignin==1,] ; ResAndFert.Doesnt <- ResAndFert[ResAndFert$UsesLignin==0,]
+ResAndFert.CohensD <- cohensD(x=ResAndFert$Log.Inhib[ResAndFert$UsesLignin==1],y=ResAndFert$Log.Inhib[ResAndFert$UsesLignin==0])
+ResAndFert.SE <- sqrt(((nrow(ResAndFert)/(nrow(ResAndFert.Uses)*nrow(ResAndFert.Doesnt))))+((ResAndFert.CohensD^2)/(2*nrow(ResAndFert))))
+ResNoFert <-  Inhibitors.MeanByComboDF[Inhibitors.MeanByComboDF$residue=='res+'&Inhibitors.MeanByComboDF$fertilizer=='NPK-',]
+ResNoFert.Uses <- ResNoFert[ResNoFert$UsesLignin==1,] ; ResNoFert.Doesnt <- ResNoFert[ResNoFert$UsesLignin==0,]
+ResNoFert.CohensD <- cohensD(x=ResNoFert$Log.Inhib[ResNoFert$UsesLignin==1],y=ResNoFert$Log.Inhib[ResNoFert$UsesLignin==0])
+ResNoFert.SE <- sqrt(((nrow(ResNoFert)/(nrow(ResNoFert.Uses)*nrow(ResNoFert.Doesnt))))+((ResNoFert.CohensD^2)/(2*nrow(ResNoFert))))
+CompareCohens.Zvalue <- ((ResAndFert.CohensD-ResNoFert.CohensD)/sqrt((ResAndFert.SE^2)+(ResNoFert.SE^2)))
+((1-pnorm(abs(CompareCohens.Zvalue)))*2) # Pvalue
+rm(ResAndFert,ResAndFert.Uses,ResAndFert.CohensD,ResAndFert.SE,ResAndFert.Doesnt,ResNoFert,ResNoFert.Uses,ResNoFert.CohensD,ResNoFert.SE,ResNoFert.Doesnt,CompareCohens.Zvalue)
 
 # set up for Figure 2
 FacetedLogInhibitSignificanceDF <- data.frame(FullResidueName=c('Residue retained','Residue retained'),FullFertilizerName=c('Fertilizer added','No fertilizer'),label=c('*','***'))
@@ -170,6 +183,17 @@ sum(PropInhibitedDF$NumberInhibited==0)
 
 # Table 2, part 1
 glmer(Binary.DoesInhibit~UsesLignin*fertilizer*residue+(1|block),data=MeanByComboDF,family=binomial) %>% summary
+
+glmer(Binary.DoesInhibit~fertilizer*residue+(1|block),data=MeanByComboDF[MeanByComboDF$UsesLignin==1,],family=binomial) %>% summary
+glmer(Binary.DoesInhibit~fertilizer*residue+(1|block),data=MeanByComboDF[MeanByComboDF$UsesLignin==0,],family=binomial) %>% summary
+
+mean(PropInhibitedDF$NumberInhibited[PropInhibitedDF$UsesLignin==1&PropInhibitedDF$residue=="res-"&PropInhibitedDF$fertilizer=='NPK-'])
+mean(PropInhibitedDF$NumberInhibited[PropInhibitedDF$UsesLignin==1&PropInhibitedDF$residue=="res-"&PropInhibitedDF$fertilizer=='NPK+'])
+mean(PropInhibitedDF$NumberInhibited[PropInhibitedDF$UsesLignin==1&PropInhibitedDF$residue=="res+"&PropInhibitedDF$fertilizer=='NPK-'])
+mean(PropInhibitedDF$NumberInhibited[PropInhibitedDF$UsesLignin==1&PropInhibitedDF$residue=="res+"&PropInhibitedDF$fertilizer=='NPK+'])
+
+
+head(PropInhibitedDF)
   
 ##### Resistance data #####
 
@@ -195,13 +219,13 @@ AntibioticResistanceSummary$NumberResisted%>%max # max number of antibiotics com
 AntibioticResistanceSummary$NumberResisted%>%min # min number of antibiotics completely resisted
 sum(AntibioticResistanceSummary$NumberResisted<=1) # number of isolates resisting 1 or fewer antibiotics
 
-# Table 4, part 1
+# Table 3, part 1
 glmer(BinaryResists ~UsesLignin*fertilizer*residue+(1|block),data=SimplifiedAntibioticsDF,family=binomial) %>% summary
 
 SimplifiedAntibioticsDF.SensetiveInteractions <- SimplifiedAntibioticsDF[SimplifiedAntibioticsDF$BinaryResists==0,]
 shapiro.test(SimplifiedAntibioticsDF.SensetiveInteractions$rmean^(1/2)) ; hist(SimplifiedAntibioticsDF.SensetiveInteractions$rmean^1/2)
 
-# Table 4, part 2
+# Table 3, part 2
 lmer(sqrt(rmean)~as.factor(UsesLignin)*fertilizer*residue+(1|Antibiotics),SimplifiedAntibioticsDF.SensetiveInteractions) %>% anova
 
 # presented in text and informs Figure S1
@@ -255,13 +279,13 @@ for (x in 1:nrow(BiologMeta)){
 }
 head(BiologMeta)
 
-# table 3, part 1
+# table 4, part 1
 set.seed(0507251434);adonis2(BiologEucDist~UsesLignin*fertilizer*residue,strata=BiologMeta$block,by='terms',na.action=na.omit,permutations=10000,data=BiologMeta)
 
-# table 3, part 2
+# table 4, part 2
 lmer(NicheWidth~UsesLignin*fertilizer*residue+(1|block),data=BiologMeta) %>% anova
 
-# table 3, part 3
+# table 4, part 3
 hist(BiologMeta$AvgGrowth)
 lmer(AvgGrowth~UsesLignin*fertilizer*residue+(1|block),data=BiologMeta) %>% anova
 
